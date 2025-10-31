@@ -1115,26 +1115,36 @@ const STORE_NAME = 'fileHandles';
   }
 
   async function addToPlaylist(src, name, fileHandle) {
-    const mediaId = Date.now() + Math.random();
-    const mediaName = name || getMediaName(src);
-    
-    playlist.push({
-      id: mediaId,
-      src: src,
-      name: mediaName,
-      fileHandle: fileHandle || null
-    });
-    
-    if(fileHandle) {
+  const mediaId = Date.now() + Math.random();
+  const mediaName = name || getMediaName(src);
+  
+  // Verificar se fileHandle é um File ou FileSystemFileHandle
+  let actualHandle = null;
+  if (fileHandle) {
+    if (fileHandle instanceof File) {
+      // É um objeto File, não tem handle
+      console.log('⚠️ Arquivo adicionado como File (não persistente):', mediaName);
+    } else {
+      // É um FileSystemFileHandle
+      actualHandle = fileHandle;
       fileHandles[src] = fileHandle;
+      console.log('✅ Handle salvo para:', mediaName);
     }
-    
-    if(name) {
-      fileNameMap[src] = name;
-    }
-    
-    renderPlaylist();
   }
+  
+  playlist.push({
+    id: mediaId,
+    src: src,
+    name: mediaName,
+    fileHandle: actualHandle
+  });
+  
+  if(name) {
+    fileNameMap[src] = name;
+  }
+  
+  renderPlaylist();
+}
 
   function playMediaFromPlaylist(index) {
     if(index >= 0 && index < playlist.length) {
@@ -1695,10 +1705,44 @@ const STORE_NAME = 'fileHandles';
     urlInput.focus();
   });
 
-  menuAddLocal.addEventListener('click', function() {
-    hideContextMenu();
-    multiFileInput.click();
-  });
+  menuAddLocal.addEventListener('click', async function() {
+  hideContextMenu();
+  
+  // Tentar usar File System Access API
+  if ('showOpenFilePicker' in window) {
+    try {
+      const fileHandles = await window.showOpenFilePicker({
+        multiple: true,
+        types: [{
+          description: 'Mídia',
+          accept: {
+            'video/*': ['.mp4', '.webm', '.mkv', '.avi', '.mov'],
+            'audio/*': ['.mp3', '.wav', '.ogg', '.m4a', '.flac']
+          }
+        }]
+      });
+      
+      for (const handle of fileHandles) {
+        const file = await handle.getFile();
+        const url = URL.createObjectURL(file);
+        await addToPlaylist(url, file.name, handle);
+      }
+      
+      if (currentMediaIndex === -1 && playlist.length > 0) {
+        playMediaFromPlaylist(0);
+      }
+      
+      showABInfo(fileHandles.length + ' arquivo(s) com handle adicionado(s)');
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('Erro ao usar File System Access API:', err);
+        multiFileInput.click(); // Fallback
+      }
+    }
+  } else {
+    multiFileInput.click(); // Fallback para navegadores antigos
+  }
+});
 
   urlConfirm.addEventListener('click', function() {
     const url = urlInput.value.trim();
@@ -1972,23 +2016,36 @@ const STORE_NAME = 'fileHandles';
     playlistPanel.classList.remove('open');
   });
 
-  exportPlaylist.addEventListener('click', function() {
-    if(playlist.length === 0) {
-      showABInfo('Playlist vazia');
-      return;
-    }
-    
-    const exportData = playlist.map(p => ({
-      id: p.id,
-      src: p.src,
-      name: p.name
-    }));
-    
-    const data = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([data], {type: 'application/json'});
-    downloadFile(blob, 'playlist_' + Date.now() + '.json');
-    showABInfo('Playlist exportada');
-  });
+  exportPlaylist.addEventListener('click', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  if(playlist.length === 0) {
+    showABInfo('Playlist vazia');
+    return;
+  }
+  
+  const exportData = playlist.map(p => ({
+    id: p.id,
+    src: p.src,
+    name: p.name
+  }));
+  
+  const data = JSON.stringify(exportData, null, 2);
+  const blob = new Blob([data], {type: 'application/json'});
+  
+  // Criar link de download
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'playlist_' + Date.now() + '.json';
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(link.href), 100);
+  
+  showABInfo('Playlist exportada');
+});
 
   importPlaylist.addEventListener('click', function() {
     playlistImportInput.click();
@@ -2692,9 +2749,12 @@ async function openDB() {
 }
 
 async function saveFileHandlesToDB() {
+  console.log('🔵 Iniciando salvamento de handles...');
+  
   try {
     // Verificar suporte à API
     if (!('showOpenFilePicker' in window)) {
+      console.log('❌ API não suportada');
       showABInfo('Navegador não suporta salvar referências');
       return;
     }
@@ -2717,7 +2777,9 @@ async function saveFileHandlesToDB() {
         }
       }
     }
-
+console.log('📁 Handles para salvar:', handlesToSave.length);
+    
+    if (handlesToSave.length === 0) {
     if (handlesToSave.length === 0) {
       showABInfo('Nenhum arquivo local para salvar');
       return;
@@ -2827,11 +2889,17 @@ async function loadFileHandlesFromDB() {
 }
 
 // ==================== EVENTOS DOS BOTÕES ====================
-const saveFileHandles = document.getElementById('saveFileHandles');
-const loadFileHandles = document.getElementById('loadFileHandles');
+document.getElementById('saveFileHandles').addEventListener('click', async function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  await saveFileHandlesToDB();
+});
 
-saveFileHandles.addEventListener('click', saveFileHandlesToDB);
-loadFileHandles.addEventListener('click', loadFileHandlesFromDB);
+document.getElementById('loadFileHandles').addEventListener('click', async function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  await loadFileHandlesFromDB();
+});
 
 // ==================== FIM DO SISTEMA DE PERSISTÊNCIA ====================
   updateVolumeUI();
