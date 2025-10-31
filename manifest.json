@@ -1,15 +1,15 @@
 {
-  "name": "Player de Áudio PWA",
-  "short_name": "Audio PWA",
-  "description": "Player de áudio Progressive Web App",
+  "name": "Meu Player",
+  "short_name": "Meu Player",
+  "description": "Player de mídia customizado com recursos A-B",
   "start_url": "/audio-player/",
   "scope": "/audio-player/",
   "display": "standalone",
   "display_override": ["standalone", "fullscreen"],
-  "background_color": "#1f2937",
-  "theme_color": "#6366f1",
+  "background_color": "#667eea",
+  "theme_color": "#764ba2",
   "orientation": "portrait-primary",
-  "categories": ["music", "entertainment"],
+  "categories": ["music", "video", "entertainment"],
   "prefer_related_applications": false,
   "icons": [
     {
@@ -35,15 +35,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Abrir Player",
-      "short_name": "Player",
-      "description": "Abrir o player de música",
-      "url": "/audio-player/",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
