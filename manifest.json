@@ -1,0 +1,25 @@
+{
+  "name": "Player de Áudio PWA",
+  "short_name": "Audio PWA",
+  "description": "Player de áudio Progressive Web App",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1f2937",
+  "theme_color": "#6366f1",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%236366f1' width='192' height='192'/%3E%3Cpath fill='%23fff' d='M72 64l20 32v80l-20 32zm48 0l20 32v80l-20 32z'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect fill='%236366f1' width='512' height='512'/%3E%3Cpath fill='%23fff' d='M192 170l54 85v170l-54 85zm128 0l54 85v170l-54 85z'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
