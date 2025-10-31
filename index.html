@@ -478,10 +478,16 @@
         });
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js')
-                .then(() => console.log('Service Worker registrado!'))
-                .catch((e) => console.log('SW error:', e));
-        }
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/audio-player/sw.js')
+            .then((registration) => {
+                console.log('Service Worker registrado:', registration.scope);
+            })
+            .catch((error) => {
+                console.error('Erro ao registrar Service Worker:', error);
+            });
+    });
+}
 
         loadTrack(0);
     </script>
