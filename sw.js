@@ -1,4 +1,4 @@
-const CACHE_NAME = 'audio-pwa-v1';
+const CACHE_NAME = 'meu-player-v1';
 const urlsToCache = [
   '/audio-player/',
   '/audio-player/index.html',
