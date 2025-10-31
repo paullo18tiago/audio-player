@@ -448,6 +448,15 @@ COLOCAR OS AJUSTES GERAIS DEPOIS DOS INDIVIDUAIS (invertendo a ordem) -- */
     cursor: pointer;
     font-size: 11px;
   }
+  #saveFileHandles {
+  background: rgba(74, 222, 128, 0.3) !important;
+  border-color: rgba(74, 222, 128, 0.5) !important;
+}
+
+#loadFileHandles {
+  background: rgba(59, 130, 246, 0.3) !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+}
 
   .modal {
     display: none;
@@ -741,10 +750,12 @@ COLOCAR OS AJUSTES GERAIS DEPOIS DOS INDIVIDUAIS (invertendo a ordem) -- */
     </div>
 
     <div class="panel-actions" id="playlistActions">
-      <button id="exportPlaylist">💾 Exportar</button>
-      <button id="importPlaylist">📂 Importar</button>
-      <button id="clearPlaylist">🗑️ Limpar</button>
-    </div>
+  <button id="saveFileHandles">💾 Salvar Refs</button>
+  <button id="loadFileHandles">📂 Carregar Refs</button>
+  <button id="exportPlaylist">💾 Exportar</button>
+  <button id="importPlaylist">📂 Importar</button>
+  <button id="clearPlaylist">🗑️ Limpar</button>
+</div>
   </div>
 
   <div class="settings-panel" id="settingsPanel">
@@ -976,6 +987,10 @@ COLOCAR OS AJUSTES GERAIS DEPOIS DOS INDIVIDUAIS (invertendo a ordem) -- */
   let forwardInterval = null;
   let preloadEnabled = true;
   let fileNameMap = {};
+  let persistedHandles = [];
+const DB_NAME = 'PlayerFileHandlesDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'fileHandles';
 
   function formatTime(seconds) {
     if(isNaN(seconds) || seconds === 0) return '0:00';
@@ -1702,19 +1717,26 @@ COLOCAR OS AJUSTES GERAIS DEPOIS DOS INDIVIDUAIS (invertendo a ordem) -- */
   });
 
   multiFileInput.addEventListener('change', async function(e) {
-    const files = e.target.files;
-    if(files.length > 0) {
-      for(let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const url = URL.createObjectURL(file);
-        await addToPlaylist(url, file.name, file);
+  const files = e.target.files;
+  if(files.length > 0) {
+    for(let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const url = URL.createObjectURL(file);
+      
+      // Tentar obter handle do arquivo (se disponível)
+      let fileHandle = null;
+      if ('showOpenFilePicker' in window && file.handle) {
+        fileHandle = file.handle;
       }
-      if(currentMediaIndex === -1) {
-        playMediaFromPlaylist(0);
-      }
-      showABInfo(files.length + ' arquivo(s) adicionado(s)');
+      
+      await addToPlaylist(url, file.name, fileHandle || file);
     }
-  });
+    if(currentMediaIndex === -1) {
+      playMediaFromPlaylist(0);
+    }
+    showABInfo(files.length + ' arquivo(s) adicionado(s)');
+  }
+});
 
   btnSettings.addEventListener('click', function(e) {
     e.preventDefault();
@@ -2652,7 +2674,166 @@ COLOCAR OS AJUSTES GERAIS DEPOIS DOS INDIVIDUAIS (invertendo a ordem) -- */
   v.addEventListener('canplay', function() {
     console.log('Ready to play');
   });
+// ==================== SISTEMA DE PERSISTÊNCIA DE FILE HANDLES ====================
+async function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+      }
+    };
+  });
+}
 
+async function saveFileHandlesToDB() {
+  try {
+    // Verificar suporte à API
+    if (!('showOpenFilePicker' in window)) {
+      showABInfo('Navegador não suporta salvar referências');
+      return;
+    }
+
+    // Coletar handles válidos da playlist
+    const handlesToSave = [];
+    for (const media of playlist) {
+      if (media.fileHandle) {
+        try {
+          // Testar se ainda temos permissão
+          const permission = await media.fileHandle.queryPermission({ mode: 'read' });
+          if (permission === 'granted' || permission === 'prompt') {
+            handlesToSave.push({
+              name: media.name,
+              handle: media.fileHandle
+            });
+          }
+        } catch (err) {
+          console.log('Handle inválido para:', media.name);
+        }
+      }
+    }
+
+    if (handlesToSave.length === 0) {
+      showABInfo('Nenhum arquivo local para salvar');
+      return;
+    }
+
+    // Salvar no IndexedDB
+    const db = await openDB();
+    const transaction = db.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    
+    // Limpar registros antigos
+    await new Promise((resolve, reject) => {
+      const clearRequest = store.clear();
+      clearRequest.onsuccess = () => resolve();
+      clearRequest.onerror = () => reject(clearRequest.error);
+    });
+
+    // Salvar novos handles
+    for (const item of handlesToSave) {
+      await new Promise((resolve, reject) => {
+        const addRequest = store.add(item);
+        addRequest.onsuccess = () => resolve();
+        addRequest.onerror = () => reject(addRequest.error);
+      });
+    }
+
+    db.close();
+    showABInfo(`✅ ${handlesToSave.length} referência(s) salva(s)!`);
+  } catch (err) {
+    console.error('Erro ao salvar handles:', err);
+    showABInfo('Erro ao salvar: ' + err.message);
+  }
+}
+
+async function loadFileHandlesFromDB() {
+  try {
+    if (!('showOpenFilePicker' in window)) {
+      showABInfo('Navegador não suporta carregar referências');
+      return;
+    }
+
+    const db = await openDB();
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    
+    const getAllRequest = store.getAll();
+    
+    const savedHandles = await new Promise((resolve, reject) => {
+      getAllRequest.onsuccess = () => resolve(getAllRequest.result);
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+
+    db.close();
+
+    if (savedHandles.length === 0) {
+      showABInfo('Nenhuma referência salva');
+      return;
+    }
+
+    // Restaurar arquivos
+    let loadedCount = 0;
+    let deniedCount = 0;
+
+    for (const item of savedHandles) {
+      try {
+        // Verificar permissão
+        const permission = await item.handle.queryPermission({ mode: 'read' });
+        
+        if (permission === 'prompt') {
+          const newPermission = await item.handle.requestPermission({ mode: 'read' });
+          if (newPermission !== 'granted') {
+            deniedCount++;
+            continue;
+          }
+        } else if (permission !== 'granted') {
+          deniedCount++;
+          continue;
+        }
+
+        // Ler o arquivo
+        const file = await item.handle.getFile();
+        const url = URL.createObjectURL(file);
+        
+        // Adicionar à playlist
+        await addToPlaylist(url, item.name, item.handle);
+        loadedCount++;
+        
+      } catch (err) {
+        console.error('Erro ao carregar:', item.name, err);
+        deniedCount++;
+      }
+    }
+
+    if (loadedCount > 0) {
+      showABInfo(`✅ ${loadedCount} arquivo(s) carregado(s)${deniedCount > 0 ? ` (${deniedCount} negado(s))` : ''}`);
+      if (currentMediaIndex === -1 && playlist.length > 0) {
+        playMediaFromPlaylist(0);
+      }
+    } else {
+      showABInfo('Permissão negada para todos os arquivos');
+    }
+    
+  } catch (err) {
+    console.error('Erro ao carregar handles:', err);
+    showABInfo('Erro ao carregar: ' + err.message);
+  }
+}
+
+// ==================== EVENTOS DOS BOTÕES ====================
+const saveFileHandles = document.getElementById('saveFileHandles');
+const loadFileHandles = document.getElementById('loadFileHandles');
+
+saveFileHandles.addEventListener('click', saveFileHandlesToDB);
+loadFileHandles.addEventListener('click', loadFileHandlesFromDB);
+
+// ==================== FIM DO SISTEMA DE PERSISTÊNCIA ====================
   updateVolumeUI();
   updateRepeatButton();
   showControls();
