@@ -2,24 +2,48 @@
   "name": "Player de Áudio PWA",
   "short_name": "Audio PWA",
   "description": "Player de áudio Progressive Web App",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/audio-player/",
+  "scope": "/audio-player/",
   "display": "standalone",
+  "display_override": ["standalone", "fullscreen"],
   "background_color": "#1f2937",
   "theme_color": "#6366f1",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
+  "categories": ["music", "entertainment"],
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%236366f1' width='192' height='192'/%3E%3Cpath fill='%23fff' d='M72 64l20 32v80l-20 32zm48 0l20 32v80l-20 32z'/%3E%3C/svg%3E",
+      "src": "icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect fill='%236366f1' width='512' height='512'/%3E%3Cpath fill='%23fff' d='M192 170l54 85v170l-54 85zm128 0l54 85v170l-54 85z'/%3E%3C/svg%3E",
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Abrir Player",
+      "short_name": "Player",
+      "description": "Abrir o player de música",
+      "url": "/audio-player/",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
