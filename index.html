@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Player de Áudio PWA</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E🎵%3C/text%3E%3C/svg%3E">
+    <link rel="manifest" href="manifest.json">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .player-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .album-art {
+            width: 100%;
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border-radius: 16px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 80px;
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
+        }
+
+        .track-info {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .track-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+
+        .track-artist {
+            font-size: 16px;
+            color: #6b7280;
+        }
+
+        .progress-container {
+            margin-bottom: 24px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #6366f1;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .time-info {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 12px;
+            border-radius: 50%;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:hover {
+            background: #f3f4f6;
+            transform: scale(1.05);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .btn-play {
+            width: 64px;
+            height: 64px;
+            background: #6366f1;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-play:hover {
+            background: #5558e3;
+        }
+
+        .btn-secondary {
+            width: 48px;
+            height: 48px;
+        }
+
+        .volume-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .volume-slider {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #e5e7eb;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #6366f1;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #6366f1;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+
+        .install-prompt {
+            text-align: center;
+            padding: 16px;
+            background: #f0fdf4;
+            border: 2px solid #86efac;
+            border-radius: 12px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .install-prompt.show {
+            display: block;
+        }
+
+        .install-btn {
+            background: #22c55e;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-weight: 600;
+            width: 100%;
+        }
+
+        .install-btn:hover {
+            background: #16a34a;
+        }
+
+        .playlist {
+            margin-top: 24px;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 24px;
+        }
+
+        .playlist-item {
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .playlist-item:hover {
+            background: #f3f4f6;
+        }
+
+        .playlist-item.active {
+            background: #ede9fe;
+        }
+
+        .playlist-item-icon {
+            width: 40px;
+            height: 40px;
+            background: #6366f1;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+
+        .playlist-item-info {
+            flex: 1;
+        }
+
+        .playlist-item-title {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 14px;
+        }
+
+        .playlist-item-artist {
+            font-size: 12px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <div class="player-container">
+        <div class="album-art">🎵</div>
+        
+        <div class="track-info">
+            <div class="track-title" id="trackTitle">Selecione uma música</div>
+            <div class="track-artist" id="trackArtist">Artista desconhecido</div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="time-info">
+                <span id="currentTime">0:00</span>
+                <span id="duration">0:00</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn-secondary" id="btnPrev" title="Anterior">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 20L9 12l10-8v16zM5 19V5"/>
+                </svg>
+            </button>
+            
+            <button class="btn-play" id="btnPlay" title="Play/Pause">
+                <svg id="playIcon" width="32" height="32" viewBox="0 0 24 24" fill="white">
+                    <path d="M8 5v14l11-7z"/>
+                </svg>
+                <svg id="pauseIcon" width="32" height="32" viewBox="0 0 24 24" fill="white" style="display: none;">
+                    <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>
+                </svg>
+            </button>
+            
+            <button class="btn-secondary" id="btnNext" title="Próxima">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 4l10 8-10 8V4zM19 5v14"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="volume-container">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="70">
+        </div>
+
+        <div class="playlist">
+            <div class="playlist-item active" data-src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" data-title="Exemplo 1" data-artist="SoundHelix">
+                <div class="playlist-item-icon">🎸</div>
+                <div class="playlist-item-info">
+                    <div class="playlist-item-title">Exemplo 1</div>
+                    <div class="playlist-item-artist">SoundHelix</div>
+                </div>
+            </div>
+            <div class="playlist-item" data-src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" data-title="Exemplo 2" data-artist="SoundHelix">
+                <div class="playlist-item-icon">🎹</div>
+                <div class="playlist-item-info">
+                    <div class="playlist-item-title">Exemplo 2</div>
+                    <div class="playlist-item-artist">SoundHelix</div>
+                </div>
+            </div>
+            <div class="playlist-item" data-src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" data-title="Exemplo 3" data-artist="SoundHelix">
+                <div class="playlist-item-icon">🎺</div>
+                <div class="playlist-item-info">
+                    <div class="playlist-item-title">Exemplo 3</div>
+                    <div class="playlist-item-artist">SoundHelix</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="install-prompt" id="installPrompt">
+            <p style="margin-bottom: 8px; color: #065f46; font-weight: 600;">📱 Instalar App</p>
+            <p style="font-size: 14px; color: #047857;">Adicione este player à sua tela inicial!</p>
+            <button class="install-btn" id="installBtn">Instalar Agora</button>
+        </div>
+    </div>
+
+    <audio id="audio"></audio>
+
+    <script>
+        const audio = document.getElementById('audio');
+        const btnPlay = document.getElementById('btnPlay');
+        const btnPrev = document.getElementById('btnPrev');
+        const btnNext = document.getElementById('btnNext');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const currentTimeEl = document.getElementById('currentTime');
+        const durationEl = document.getElementById('duration');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const trackTitle = document.getElementById('trackTitle');
+        const trackArtist = document.getElementById('trackArtist');
+        const playlistItems = document.querySelectorAll('.playlist-item');
+        
+        let currentTrackIndex = 0;
+        const tracks = Array.from(playlistItems).map(item => ({
+            src: item.dataset.src,
+            title: item.dataset.title,
+            artist: item.dataset.artist
+        }));
+
+        function loadTrack(index) {
+            const track = tracks[index];
+            audio.src = track.src;
+            trackTitle.textContent = track.title;
+            trackArtist.textContent = track.artist;
+            
+            playlistItems.forEach((item, i) => {
+                item.classList.toggle('active', i === index);
+            });
+            
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: track.title,
+                    artist: track.artist,
+                    album: 'Player PWA',
+                    artwork: [
+                        { src: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"%3E%3Crect fill="%236366f1" width="512" height="512"/%3E%3Ctext x="256" y="320" font-size="200" text-anchor="middle" fill="white"%3E🎵%3C/text%3E%3C/svg%3E', sizes: '512x512', type: 'image/svg+xml' }
+                    ]
+                });
+            }
+        }
+
+        btnPlay.addEventListener('click', () => {
+            if (audio.paused) {
+                audio.play();
+                playIcon.style.display = 'none';
+                pauseIcon.style.display = 'block';
+            } else {
+                audio.pause();
+                playIcon.style.display = 'block';
+                pauseIcon.style.display = 'none';
+            }
+        });
+
+        btnPrev.addEventListener('click', () => {
+            currentTrackIndex = (currentTrackIndex - 1 + tracks.length) % tracks.length;
+            loadTrack(currentTrackIndex);
+            audio.play();
+        });
+
+        btnNext.addEventListener('click', () => {
+            currentTrackIndex = (currentTrackIndex + 1) % tracks.length;
+            loadTrack(currentTrackIndex);
+            audio.play();
+        });
+
+        playlistItems.forEach((item, index) => {
+            item.addEventListener('click', () => {
+                currentTrackIndex = index;
+                loadTrack(currentTrackIndex);
+                audio.play();
+            });
+        });
+
+        audio.addEventListener('timeupdate', () => {
+            const progress = (audio.currentTime / audio.duration) * 100;
+            progressFill.style.width = progress + '%';
+            currentTimeEl.textContent = formatTime(audio.currentTime);
+        });
+
+        audio.addEventListener('loadedmetadata', () => {
+            durationEl.textContent = formatTime(audio.duration);
+        });
+
+        progressBar.addEventListener('click', (e) => {
+            const rect = progressBar.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const percentage = x / rect.width;
+            audio.currentTime = percentage * audio.duration;
+        });
+
+        volumeSlider.addEventListener('input', (e) => {
+            audio.volume = e.target.value / 100;
+        });
+        audio.volume = 0.7;
+
+        audio.addEventListener('ended', () => {
+            currentTrackIndex = (currentTrackIndex + 1) % tracks.length;
+            loadTrack(currentTrackIndex);
+            audio.play();
+        });
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.setActionHandler('play', () => audio.play());
+            navigator.mediaSession.setActionHandler('pause', () => audio.pause());
+            navigator.mediaSession.setActionHandler('previoustrack', () => btnPrev.click());
+            navigator.mediaSession.setActionHandler('nexttrack', () => btnNext.click());
+        }
+
+        let deferredPrompt;
+        const installPrompt = document.getElementById('installPrompt');
+        const installBtn = document.getElementById('installBtn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installPrompt.classList.add('show');
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                installPrompt.classList.remove('show');
+            }
+        });
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js')
+                .then(() => console.log('Service Worker registrado!'))
+                .catch((e) => console.log('SW error:', e));
+        }
+
+        loadTrack(0);
+    </script>
+</body>
+</html>
